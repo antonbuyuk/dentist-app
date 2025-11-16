@@ -102,12 +102,6 @@ onMounted(async () => {
           placeholder="Поиск..."
           class="rounded border border-gray-300 px-3 py-2"
         >
-        <button
-          class="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-          @click="handleAdd"
-        >
-          Добавить пациента
-        </button>
       </div>
     </div>
 
@@ -165,9 +159,6 @@ onMounted(async () => {
           <th class="border border-gray-300 px-4 py-2 text-left">
             Дата рождения
           </th>
-          <th class="border border-gray-300 px-4 py-2 text-left">
-            Действия
-          </th>
         </tr>
       </thead>
       <tbody>
@@ -190,22 +181,6 @@ onMounted(async () => {
           </td>
           <td class="border border-gray-300 px-4 py-2">
             {{ patient.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString('ru-RU') : '-' }}
-          </td>
-          <td class="border border-gray-300 px-4 py-2">
-            <div class="flex gap-2">
-              <button
-                class="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
-                @click="handleEdit(patient)"
-              >
-                Редактировать
-              </button>
-              <button
-                class="rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700"
-                @click="handleDelete(patient.id)"
-              >
-                Удалить
-              </button>
-            </div>
           </td>
         </tr>
       </tbody>

@@ -19,4 +19,3 @@ export class CreateDoctorDto {
   @IsOptional()
   phone?: string;
 }
-

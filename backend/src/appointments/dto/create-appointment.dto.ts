@@ -21,4 +21,3 @@ export class CreateAppointmentDto {
   @IsOptional()
   status?: string;
 }
-

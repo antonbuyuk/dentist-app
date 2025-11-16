@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import type { Doctor, CreateDoctorDto, UpdateDoctorDto } from '~/types/doctor';
+import { useToast } from '~/composables/useToast';
 
 type DoctorsState = {
   doctors: Doctor[];
@@ -39,13 +40,17 @@ export const useDoctorsStore = defineStore('doctors', {
     async createDoctor(dto: CreateDoctorDto) {
       this.loading = true;
       this.error = null;
+      const { success, error: showError } = useToast();
       try {
         const { $api } = useNuxtApp();
         const doctor = await $api.post<Doctor>('/doctors', dto);
         this.doctors.push(doctor);
+        success('Врач успешно создан');
         return doctor;
       } catch (err) {
-        this.error = err instanceof Error ? err.message : 'Failed to create doctor';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to create doctor';
+        this.error = errorMessage;
+        showError(`Ошибка создания врача: ${errorMessage}`);
         throw err;
       } finally {
         this.loading = false;
@@ -55,6 +60,7 @@ export const useDoctorsStore = defineStore('doctors', {
     async updateDoctor(id: string, dto: UpdateDoctorDto) {
       this.loading = true;
       this.error = null;
+      const { success, error: showError } = useToast();
       try {
         const { $api } = useNuxtApp();
         const doctor = await $api.patch<Doctor>(`/doctors/${id}`, dto);
@@ -62,9 +68,12 @@ export const useDoctorsStore = defineStore('doctors', {
         if (index !== -1) {
           this.doctors[index] = doctor;
         }
+        success('Врач успешно обновлён');
         return doctor;
       } catch (err) {
-        this.error = err instanceof Error ? err.message : 'Failed to update doctor';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to update doctor';
+        this.error = errorMessage;
+        showError(`Ошибка обновления врача: ${errorMessage}`);
         throw err;
       } finally {
         this.loading = false;
@@ -74,12 +83,16 @@ export const useDoctorsStore = defineStore('doctors', {
     async deleteDoctor(id: string) {
       this.loading = true;
       this.error = null;
+      const { success, error: showError } = useToast();
       try {
         const { $api } = useNuxtApp();
         await $api.del(`/doctors/${id}`);
         this.doctors = this.doctors.filter((d) => d.id !== id);
+        success('Врач успешно удалён');
       } catch (err) {
-        this.error = err instanceof Error ? err.message : 'Failed to delete doctor';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to delete doctor';
+        this.error = errorMessage;
+        showError(`Ошибка удаления врача: ${errorMessage}`);
         throw err;
       } finally {
         this.loading = false;

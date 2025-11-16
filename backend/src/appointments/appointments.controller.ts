@@ -18,7 +18,9 @@ export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
   @Post()
-  async create(@Body() createAppointmentDto: CreateAppointmentDto): Promise<AppointmentResponseDto> {
+  async create(
+    @Body() createAppointmentDto: CreateAppointmentDto,
+  ): Promise<AppointmentResponseDto> {
     return this.appointmentsService.create(createAppointmentDto);
   }
 
@@ -54,4 +56,3 @@ export class AppointmentsController {
     return this.appointmentsService.remove(id);
   }
 }
-

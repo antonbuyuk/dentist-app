@@ -22,6 +22,8 @@ model Patient {
   dateOfBirth DateTime?
   address     String?
   notes       String?
+  userId      String?       @unique
+  user        User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   appointments Appointment[]
@@ -36,6 +38,8 @@ model Doctor {
   specialization String?
   email         String?
   phone         String?
+  userId        String?       @unique
+  user          User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   appointments  Appointment[]
@@ -61,4 +65,23 @@ model Appointment {
   @@index([doctorId])
   @@index([startTime])
   @@map("appointments")
+}
+
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  password       String
+  firstName      String?
+  lastName       String?
+  phone          String?
+  dateOfBirth    DateTime?
+  address        String?
+  medicalHistory String?   @db.Text
+  role           String    @default("patient") // developer, rootUser, doctor, patient, admin
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  patient        Patient?
+  doctor         Doctor?
+
+  @@map("users")
 }

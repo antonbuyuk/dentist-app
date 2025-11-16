@@ -103,12 +103,6 @@ onMounted(async () => {
           placeholder="Поиск..."
           class="rounded border border-gray-300 px-3 py-2"
         >
-        <button
-          class="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-          @click="handleAdd"
-        >
-          Добавить врача
-        </button>
       </div>
     </div>
 
@@ -172,9 +166,6 @@ onMounted(async () => {
           <th class="border border-gray-300 px-4 py-2 text-left">
             Телефон
           </th>
-          <th class="border border-gray-300 px-4 py-2 text-left">
-            Действия
-          </th>
         </tr>
       </thead>
       <tbody>
@@ -197,22 +188,6 @@ onMounted(async () => {
           </td>
           <td class="border border-gray-300 px-4 py-2">
             {{ doctor.phone || '-' }}
-          </td>
-          <td class="border border-gray-300 px-4 py-2">
-            <div class="flex gap-2">
-              <button
-                class="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
-                @click="handleEdit(doctor)"
-              >
-                Редактировать
-              </button>
-              <button
-                class="rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700"
-                @click="handleDelete(doctor.id)"
-              >
-                Удалить
-              </button>
-            </div>
           </td>
         </tr>
       </tbody>

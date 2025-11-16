@@ -8,4 +8,3 @@ export class DoctorResponseDto {
   createdAt!: string;
   updatedAt!: string;
 }
-

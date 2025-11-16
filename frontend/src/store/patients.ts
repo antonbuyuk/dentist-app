@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import type { Patient, CreatePatientDto, UpdatePatientDto } from '~/types/patient';
+import { useToast } from '~/composables/useToast';
 
 type PatientsState = {
   patients: Patient[];
@@ -44,13 +45,17 @@ export const usePatientsStore = defineStore('patients', {
     async createPatient(dto: CreatePatientDto) {
       this.loading = true;
       this.error = null;
+      const { success, error: showError } = useToast();
       try {
         const { $api } = useNuxtApp();
         const patient = await $api.post<Patient>('/patients', dto);
         this.patients.push(patient);
+        success('Пациент успешно создан');
         return patient;
       } catch (err) {
-        this.error = err instanceof Error ? err.message : 'Failed to create patient';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to create patient';
+        this.error = errorMessage;
+        showError(`Ошибка создания пациента: ${errorMessage}`);
         throw err;
       } finally {
         this.loading = false;
@@ -60,6 +65,7 @@ export const usePatientsStore = defineStore('patients', {
     async updatePatient(id: string, dto: UpdatePatientDto) {
       this.loading = true;
       this.error = null;
+      const { success, error: showError } = useToast();
       try {
         const { $api } = useNuxtApp();
         const patient = await $api.patch<Patient>(`/patients/${id}`, dto);
@@ -67,9 +73,12 @@ export const usePatientsStore = defineStore('patients', {
         if (index !== -1) {
           this.patients[index] = patient;
         }
+        success('Пациент успешно обновлён');
         return patient;
       } catch (err) {
-        this.error = err instanceof Error ? err.message : 'Failed to update patient';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to update patient';
+        this.error = errorMessage;
+        showError(`Ошибка обновления пациента: ${errorMessage}`);
         throw err;
       } finally {
         this.loading = false;
@@ -79,12 +88,16 @@ export const usePatientsStore = defineStore('patients', {
     async deletePatient(id: string) {
       this.loading = true;
       this.error = null;
+      const { success, error: showError } = useToast();
       try {
         const { $api } = useNuxtApp();
         await $api.del(`/patients/${id}`);
         this.patients = this.patients.filter((p) => p.id !== id);
+        success('Пациент успешно удалён');
       } catch (err) {
-        this.error = err instanceof Error ? err.message : 'Failed to delete patient';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to delete patient';
+        this.error = errorMessage;
+        showError(`Ошибка удаления пациента: ${errorMessage}`);
         throw err;
       } finally {
         this.loading = false;

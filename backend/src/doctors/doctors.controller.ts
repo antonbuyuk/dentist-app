@@ -17,7 +17,9 @@ export class DoctorsController {
   constructor(private readonly doctorsService: DoctorsService) {}
 
   @Post()
-  async create(@Body() createDoctorDto: CreateDoctorDto): Promise<DoctorResponseDto> {
+  async create(
+    @Body() createDoctorDto: CreateDoctorDto,
+  ): Promise<DoctorResponseDto> {
     return this.doctorsService.create(createDoctorDto);
   }
 
@@ -44,4 +46,3 @@ export class DoctorsController {
     return this.doctorsService.remove(id);
   }
 }
-

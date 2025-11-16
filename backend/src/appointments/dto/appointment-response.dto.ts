@@ -24,4 +24,3 @@ export class AppointmentResponseDto {
     phone?: string;
   };
 }
-

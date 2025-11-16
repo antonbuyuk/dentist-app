@@ -1,4 +1,18 @@
 <script setup lang="ts">
+import { useAuthStore } from '~/store/auth'
+
+definePageMeta({
+  middleware: 'auth',
+})
+
+const authStore = useAuthStore()
+
+// Редиректим на соответствующий dashboard в зависимости от роли
+onMounted(() => {
+  if (authStore.isAuthenticated && authStore.user) {
+    navigateTo(authStore.dashboardPath)
+  }
+})
 </script>
 
 <template>

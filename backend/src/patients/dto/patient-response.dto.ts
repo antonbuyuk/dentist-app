@@ -10,4 +10,3 @@ export class PatientResponseDto {
   createdAt!: string;
   updatedAt!: string;
 }
-
