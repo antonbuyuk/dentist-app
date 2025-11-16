@@ -6,6 +6,9 @@ export type Appointment = {
   endTime: string;
   notes?: string;
   status: string;
+  recurrenceRule?: string; // daily, weekly, monthly
+  recurrenceEndDate?: string;
+  parentAppointmentId?: string;
   createdAt: string;
   updatedAt: string;
   patient?: {
@@ -14,6 +17,7 @@ export type Appointment = {
     lastName: string;
     email?: string;
     phone?: string;
+    userId?: string;
   };
   doctor?: {
     id: string;
@@ -22,6 +26,8 @@ export type Appointment = {
     specialization?: string;
     email?: string;
     phone?: string;
+    userId?: string;
+    color?: string;
   };
 };
 
@@ -32,6 +38,8 @@ export type CreateAppointmentDto = {
   endTime: string;
   notes?: string;
   status?: string;
+  recurrenceRule?: 'daily' | 'weekly' | 'monthly';
+  recurrenceEndDate?: string;
 };
 
 export type UpdateAppointmentDto = Partial<CreateAppointmentDto>;

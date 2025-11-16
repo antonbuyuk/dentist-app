@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import type { Appointment } from '~/types/appointment'
 import { useAuthStore } from '~/store/auth'
 import { useAppointmentsStore } from '~/store/appointments'
 import { useDoctorsStore } from '~/store/doctors'
+import TodayAppointmentsWidget from '~/components/widgets/TodayAppointmentsWidget.vue'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -36,6 +38,11 @@ const upcomingAppointments = computed(() => {
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
     .slice(0, 5)
 })
+
+const handleAppointmentClick = (appointment: Appointment) => {
+  // Можно открыть детали приёма или перейти к расписанию
+  navigateTo(`/schedule?appointmentId=${appointment.id}`)
+}
 
 onMounted(async () => {
   await Promise.all([
@@ -87,54 +94,12 @@ onMounted(async () => {
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold mb-4">
-          Ближайшие приёмы
-        </h2>
-        <div
-          v-if="upcomingAppointments.length === 0"
-          class="text-gray-500 text-center py-8"
-        >
-          Нет предстоящих приёмов
-        </div>
-        <div
-          v-else
-          class="space-y-3"
-        >
-          <div
-            v-for="apt in upcomingAppointments"
-            :key="apt.id"
-            class="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div class="flex justify-between items-start">
-              <div>
-                <div class="font-medium">
-                  {{ apt.patient ? `${apt.patient.firstName} ${apt.patient.lastName}` : 'Неизвестный пациент' }}
-                </div>
-                <div class="text-sm text-gray-600 mt-1">
-                  {{ new Date(apt.startTime).toLocaleString('ru-RU') }}
-                </div>
-              </div>
-              <span
-                class="px-2 py-1 text-xs rounded"
-                :class="{
-                  'bg-blue-100 text-blue-800': apt.status === 'scheduled',
-                  'bg-green-100 text-green-800': apt.status === 'completed',
-                  'bg-red-100 text-red-800': apt.status === 'cancelled',
-                }"
-              >
-                {{ apt.status === 'scheduled' ? 'Запланирован' : apt.status === 'completed' ? 'Завершён' : 'Отменён' }}
-              </span>
-            </div>
-          </div>
-        </div>
-        <NuxtLink
-          to="/schedule"
-          class="mt-4 block text-center text-blue-600 hover:text-blue-700"
-        >
-          Посмотреть все приёмы →
-        </NuxtLink>
-      </div>
+      <!-- Виджет "Приёмы сегодня" -->
+      <TodayAppointmentsWidget
+        :appointments="myAppointments"
+        :doctor-id="currentDoctor?.id"
+        @appointment-click="handleAppointmentClick"
+      />
 
       <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-xl font-semibold mb-4">

@@ -41,6 +41,10 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
+  color?: string;
+
+  @IsOptional()
+  @IsString()
   @IsIn(['developer', 'rootUser', 'doctor', 'patient', 'admin'])
   role?: string;
 }

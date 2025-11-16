@@ -52,6 +52,7 @@ export class UsersService {
           : null,
         address: createUserDto.address,
         medicalHistory: createUserDto.medicalHistory,
+        color: createUserDto.color,
         role: createUserDto.role || 'patient',
       },
       select: {
@@ -63,6 +64,7 @@ export class UsersService {
         dateOfBirth: true,
         address: true,
         medicalHistory: true,
+        color: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -83,6 +85,7 @@ export class UsersService {
         dateOfBirth: true,
         address: true,
         medicalHistory: true,
+        color: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -107,6 +110,7 @@ export class UsersService {
         dateOfBirth: true,
         address: true,
         medicalHistory: true,
+        color: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -181,6 +185,9 @@ export class UsersService {
     if (updateUserDto.medicalHistory !== undefined) {
       updateData.medicalHistory = updateUserDto.medicalHistory;
     }
+    if (updateUserDto.color !== undefined) {
+      updateData.color = updateUserDto.color;
+    }
     if (updateUserDto.role !== undefined) {
       updateData.role = updateUserDto.role;
     }
@@ -203,6 +210,7 @@ export class UsersService {
         dateOfBirth: true,
         address: true,
         medicalHistory: true,
+        color: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -245,6 +253,7 @@ export class UsersService {
         dateOfBirth: true,
         address: true,
         medicalHistory: true,
+        color: true,
         role: true,
         createdAt: true,
         updatedAt: true,

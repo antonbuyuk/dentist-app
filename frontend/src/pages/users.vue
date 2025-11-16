@@ -27,6 +27,7 @@ const formData = ref<CreateUserDto>({
   dateOfBirth: '',
   address: '',
   medicalHistory: '',
+  color: '',
   role: 'patient',
 })
 
@@ -39,6 +40,7 @@ const editFormData = ref<UpdateUserDto>({
   dateOfBirth: '',
   address: '',
   medicalHistory: '',
+  color: '',
   role: 'patient',
 })
 
@@ -130,6 +132,7 @@ const handleAdd = () => {
     dateOfBirth: '',
     address: '',
     medicalHistory: '',
+    color: '',
     role: 'patient',
   }
   isFormOpen.value = true
@@ -146,6 +149,7 @@ const handleEdit = (user: User) => {
     dateOfBirth: formatDateForInput(user.dateOfBirth),
     address: user.address || '',
     medicalHistory: user.medicalHistory || '',
+    color: user.color || '',
     role: user.role as any,
   }
   isEditFormOpen.value = true
@@ -165,6 +169,7 @@ const handleFormSubmit = async () => {
       dateOfBirth: '',
       address: '',
       medicalHistory: '',
+      color: '',
       role: 'patient',
     }
   } catch (error) {
@@ -181,6 +186,30 @@ const handleEditFormSubmit = async () => {
     if (!updateData.password || updateData.password.trim() === '') {
       delete updateData.password
     }
+    // Удаляем пустой color из данных обновления
+    if (!updateData.color || updateData.color.trim() === '') {
+      updateData.color = undefined
+    }
+    // Удаляем пустую dateOfBirth из данных обновления (валидатор требует валидную ISO 8601 дату или отсутствие поля)
+    if (!updateData.dateOfBirth || updateData.dateOfBirth.trim() === '') {
+      updateData.dateOfBirth = undefined
+    }
+    // Удаляем пустые строки для опциональных полей
+    if (updateData.firstName === '') {
+      updateData.firstName = undefined
+    }
+    if (updateData.lastName === '') {
+      updateData.lastName = undefined
+    }
+    if (updateData.phone === '') {
+      updateData.phone = undefined
+    }
+    if (updateData.address === '') {
+      updateData.address = undefined
+    }
+    if (updateData.medicalHistory === '') {
+      updateData.medicalHistory = undefined
+    }
     await usersStore.updateUser(editingUser.value.id, updateData)
     await usersStore.fetchUsers() // Обновляем список после редактирования
     isEditFormOpen.value = false
@@ -194,6 +223,7 @@ const handleEditFormSubmit = async () => {
       dateOfBirth: '',
       address: '',
       medicalHistory: '',
+      color: '',
       role: 'patient',
     }
   } catch (error) {
@@ -583,6 +613,26 @@ onMounted(() => {
               />
             </div>
 
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Цвет (hex, например #3b82f6)
+              </label>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model="formData.color"
+                  type="color"
+                  class="h-10 w-20 border border-gray-300 rounded-md cursor-pointer"
+                >
+                <input
+                  v-model="formData.color"
+                  type="text"
+                  placeholder="#3b82f6"
+                  pattern="^#[0-9A-Fa-f]{6}$"
+                  class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+              </div>
+            </div>
+
             <div class="mb-6 col-span-2">
               <label class="block text-sm font-medium text-gray-700 mb-1">
                 Роль *
@@ -723,6 +773,26 @@ onMounted(() => {
                 rows="4"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Цвет (hex, например #3b82f6)
+              </label>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model="editFormData.color"
+                  type="color"
+                  class="h-10 w-20 border border-gray-300 rounded-md cursor-pointer"
+                >
+                <input
+                  v-model="editFormData.color"
+                  type="text"
+                  placeholder="#3b82f6"
+                  pattern="^#[0-9A-Fa-f]{6}$"
+                  class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+              </div>
             </div>
 
             <div class="mb-6 col-span-2">

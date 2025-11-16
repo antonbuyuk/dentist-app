@@ -46,35 +46,19 @@ export class DoctorsService {
       const tempPassword = `temp${Math.random().toString(36).slice(-8)}`;
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-      // Создаем пользователя и врача в транзакции
-      const result = await this.prisma.$transaction(async (tx) => {
-        // Создаем пользователя
-        const user = await tx.user.create({
-          data: {
-            email: userEmail,
-            password: hashedPassword,
-            firstName: createDoctorDto.firstName,
-            lastName: createDoctorDto.lastName,
-            role: 'doctor',
-          },
-        });
-
-        // Создаем врача и связываем с пользователем
-        const doctor = await tx.doctor.create({
-          data: {
-            firstName: createDoctorDto.firstName,
-            lastName: createDoctorDto.lastName,
-            specialization: createDoctorDto.specialization,
-            email: createDoctorDto.email,
-            phone: createDoctorDto.phone,
-            userId: user.id,
-          },
-        });
-
-        return doctor;
+      // Создаем пользователя с ролью doctor
+      const user = await this.prisma.user.create({
+        data: {
+          email: userEmail,
+          password: hashedPassword,
+          firstName: createDoctorDto.firstName,
+          lastName: createDoctorDto.lastName,
+          phone: createDoctorDto.phone,
+          role: 'doctor',
+        },
       });
 
-      return this.mapToDto(result);
+      return this.mapToDto(user);
     } catch (error) {
       console.error('Error creating doctor:', error);
       throw error;
@@ -83,85 +67,15 @@ export class DoctorsService {
 
   async findAll(): Promise<DoctorResponseDto[]> {
     try {
-      // Получаем всех врачей с включенными данными пользователя
-
-      const doctors = await (this.prisma.doctor.findMany({
-        include: {
-          user: true,
-        } as any,
-        orderBy: { createdAt: 'desc' },
-      }) as Promise<any[]>);
-
-      // Также получаем всех пользователей с ролью doctor, у которых нет записи в таблице doctors
-
-      const allUsersWithDoctorRole = await (this.prisma.user.findMany({
+      // Получаем всех пользователей с ролью doctor
+      const doctors = await this.prisma.user.findMany({
         where: {
           role: 'doctor',
         },
-        include: {
-          doctor: true,
-        } as any,
-      }) as Promise<any[]>);
+        orderBy: { createdAt: 'desc' },
+      });
 
-      // Фильтруем только тех, у кого нет связанной записи в таблице doctors
-
-      const usersWithDoctorRole = allUsersWithDoctorRole.filter(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (user: any) => !user.doctor,
-      );
-
-      // Преобразуем пользователей без записи в таблице doctors в формат DoctorResponseDto
-      const doctorsFromUsers = usersWithDoctorRole.map((user: any) => ({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        id: user.id,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        firstName: user.firstName || '',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        lastName: user.lastName || '',
-        specialization: null,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        email: user.email,
-        phone: null,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        createdAt: user.createdAt,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        updatedAt: user.updatedAt,
-      }));
-
-      // Объединяем врачей из таблицы doctors и пользователей с ролью doctor
-      const allDoctors = [
-        ...doctors.map((d: any) => {
-          // Используем данные из таблицы doctors, но email берем из связанного пользователя если есть
-          const doctorData = {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            id: d.id,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            firstName: d.firstName,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            lastName: d.lastName,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            specialization: d.specialization,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            email: d.user?.email || d.email,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            phone: d.phone,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            createdAt: d.createdAt,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            updatedAt: d.updatedAt,
-          };
-          return this.mapToDto(doctorData);
-        }),
-        ...doctorsFromUsers.map((d) => this.mapToDto(d)),
-      ];
-
-      // Удаляем дубликаты по email (если пользователь уже есть в таблице doctors)
-      const uniqueDoctors = allDoctors.filter(
-        (doctor, index, self) =>
-          index === self.findIndex((d) => d.email === doctor.email),
-      );
-
-      return uniqueDoctors;
+      return doctors.map((user) => this.mapToDto(user));
     } catch (error) {
       console.error('Error fetching doctors from database:', error);
       throw error;
@@ -169,8 +83,11 @@ export class DoctorsService {
   }
 
   async findOne(id: string): Promise<DoctorResponseDto> {
-    const doctor = await this.prisma.doctor.findUnique({
-      where: { id },
+    const doctor = await this.prisma.user.findFirst({
+      where: {
+        id,
+        role: 'doctor',
+      },
     });
 
     if (!doctor) {
@@ -184,39 +101,22 @@ export class DoctorsService {
     id: string,
     updateDoctorDto: UpdateDoctorDto,
   ): Promise<DoctorResponseDto> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const existing = await (this.prisma.doctor.findUnique({
-      where: { id },
-      include: { user: true } as any,
-    }) as Promise<any>);
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        id,
+        role: 'doctor',
+      },
+    });
 
     if (!existing) {
       throw new NotFoundException(`Doctor with ID ${id} not found`);
     }
 
-    // Если есть связанный пользователь, обновляем его данные
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const existingWithUser = existing;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (existingWithUser.userId) {
-      await this.prisma.user.update({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        where: { id: existingWithUser.userId },
-        data: {
-          firstName: updateDoctorDto.firstName,
-          lastName: updateDoctorDto.lastName,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          email: updateDoctorDto.email || existingWithUser.user?.email,
-        },
-      });
-    }
-
-    const doctor = await this.prisma.doctor.update({
+    const doctor = await this.prisma.user.update({
       where: { id },
       data: {
         firstName: updateDoctorDto.firstName,
         lastName: updateDoctorDto.lastName,
-        specialization: updateDoctorDto.specialization,
         email: updateDoctorDto.email,
         phone: updateDoctorDto.phone,
       },
@@ -226,38 +126,40 @@ export class DoctorsService {
   }
 
   async remove(id: string): Promise<void> {
-    const existing = await this.prisma.doctor.findUnique({
-      where: { id },
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        id,
+        role: 'doctor',
+      },
     });
 
     if (!existing) {
       throw new NotFoundException(`Doctor with ID ${id} not found`);
     }
 
-    await this.prisma.doctor.delete({
+    await this.prisma.user.delete({
       where: { id },
     });
   }
 
-  private mapToDto(doctor: {
+  private mapToDto(user: {
     id: string;
-    firstName: string;
-    lastName: string;
-    specialization: string | null;
-    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
     phone: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): DoctorResponseDto {
     return {
-      id: doctor.id,
-      firstName: doctor.firstName,
-      lastName: doctor.lastName,
-      specialization: doctor.specialization ?? undefined,
-      email: doctor.email ?? undefined,
-      phone: doctor.phone ?? undefined,
-      createdAt: doctor.createdAt.toISOString(),
-      updatedAt: doctor.updatedAt.toISOString(),
+      id: user.id,
+      firstName: user.firstName ?? '',
+      lastName: user.lastName ?? '',
+      specialization: undefined, // User не имеет specialization
+      email: user.email,
+      phone: user.phone ?? undefined,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
     };
   }
 }

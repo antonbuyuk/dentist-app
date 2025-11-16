@@ -13,75 +13,159 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Patient {
-  id          String        @id @default(uuid())
-  firstName   String
-  lastName    String
-  email       String?
-  phone       String?
-  dateOfBirth DateTime?
-  address     String?
-  notes       String?
-  userId      String?       @unique
-  user        User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  appointments Appointment[]
-
-  @@map("patients")
-}
-
-model Doctor {
-  id            String        @id @default(uuid())
-  firstName     String
-  lastName      String
-  specialization String?
-  email         String?
-  phone         String?
-  userId        String?       @unique
-  user          User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  appointments  Appointment[]
-
-  @@map("doctors")
-}
-
 model Appointment {
-  id          String   @id @default(uuid())
-  patientId   String
-  doctorId    String
-  startTime   DateTime
-  endTime     DateTime
-  notes       String?
-  status      String   @default("scheduled") // scheduled, completed, cancelled
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  String    @id @default(uuid())
+  patientId           String
+  doctorId            String
+  workplaceId         String?
+  startTime           DateTime
+  endTime             DateTime
+  notes               String?
+  status              String    @default("scheduled") // scheduled, completed, cancelled
+  recurrenceRule      String? // daily, weekly, monthly, null = без повторения
+  recurrenceEndDate   DateTime? // Дата окончания повторения
+  parentAppointmentId String? // ID родительского приёма (для группировки повторяющихся)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient           User            @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
+  doctor            User            @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: Cascade)
+  workplace         Workplace?      @relation(fields: [workplaceId], references: [id], onDelete: SetNull)
+  parentAppointment Appointment?    @relation("RecurringAppointments", fields: [parentAppointmentId], references: [id], onDelete: Cascade)
+  childAppointments Appointment[]   @relation("RecurringAppointments")
+  notifications     Notification[]
+  medicalRecords    MedicalRecord[]
 
   @@index([patientId])
   @@index([doctorId])
+  @@index([workplaceId])
   @@index([startTime])
+  @@index([parentAppointmentId])
   @@map("appointments")
 }
 
+model Workplace {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  type        String? // кабинет, операционная, рентген-кабинет и т.д.
+  location    String? // адрес или номер кабинета
+  equipment   String?  @db.Text // описание оборудования
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  appointments Appointment[]
+  doctors      DoctorWorkplace[]
+
+  @@map("workplaces")
+}
+
+model DoctorWorkplace {
+  id          String   @id @default(uuid())
+  doctorId    String
+  workplaceId String
+  createdAt   DateTime @default(now())
+
+  doctor    User      @relation("DoctorWorkplaces", fields: [doctorId], references: [id], onDelete: Cascade)
+  workplace Workplace @relation(fields: [workplaceId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, workplaceId])
+  @@index([doctorId])
+  @@index([workplaceId])
+  @@map("doctor_workplaces")
+}
+
 model User {
-  id             String    @id @default(uuid())
-  email          String    @unique
-  password       String
-  firstName      String?
-  lastName       String?
-  phone          String?
-  dateOfBirth    DateTime?
-  address        String?
-  medicalHistory String?   @db.Text
-  role           String    @default("patient") // developer, rootUser, doctor, patient, admin
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  patient        Patient?
-  doctor         Doctor?
+  id                    String            @id @default(uuid())
+  email                 String            @unique
+  password              String
+  firstName             String?
+  lastName              String?
+  phone                 String?
+  dateOfBirth           DateTime?
+  address               String?
+  medicalHistory        String?           @db.Text
+  color                 String? // Цвет для отображения в календаре (hex формат, например #3b82f6)
+  role                  String            @default("patient") // developer, rootUser, doctor, patient, admin
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  patientAppointments   Appointment[]     @relation("PatientAppointments")
+  doctorAppointments    Appointment[]     @relation("DoctorAppointments")
+  doctorWorkplaces      DoctorWorkplace[] @relation("DoctorWorkplaces")
+  notifications         Notification[]
+  patientMedicalRecords MedicalRecord[]   @relation("PatientMedicalRecords")
+  doctorMedicalRecords  MedicalRecord[]   @relation("DoctorMedicalRecords")
+  createdMedicalRecords MedicalRecord[]   @relation("CreatedMedicalRecords")
+  uploadedFiles         FileAttachment[]  @relation("UploadedFiles")
 
   @@map("users")
+}
+
+model Notification {
+  id            String   @id @default(uuid())
+  userId        String
+  type          String // appointment_reminder, appointment_created, appointment_cancelled, appointment_updated, system
+  title         String
+  message       String   @db.Text
+  read          Boolean  @default(false)
+  appointmentId String? // Связь с приёмом, если уведомление связано с приёмом
+  createdAt     DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+  @@index([appointmentId])
+  @@map("notifications")
+}
+
+model MedicalRecord {
+  id              String   @id @default(uuid())
+  appointmentId   String // Связь с приёмом
+  patientId       String // Пациент
+  doctorId        String // Врач
+  createdById     String // Пользователь, который создал запись
+  diagnosis       String?  @db.Text // Диагноз
+  treatment       String?  @db.Text // Лечение
+  notes           String?  @db.Text // Заметки врача
+  recommendations String?  @db.Text // Рекомендации пациенту
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  appointment Appointment      @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  patient     User             @relation("PatientMedicalRecords", fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      User             @relation("DoctorMedicalRecords", fields: [doctorId], references: [id], onDelete: Cascade)
+  createdBy   User             @relation("CreatedMedicalRecords", fields: [createdById], references: [id], onDelete: Cascade)
+  attachments FileAttachment[]
+
+  @@index([appointmentId])
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("medical_records")
+}
+
+model FileAttachment {
+  id              String   @id @default(uuid())
+  medicalRecordId String? // Связь с медицинской записью (опционально, для будущего расширения)
+  userId          String // Кто загрузил файл
+  fileName        String // Оригинальное имя файла
+  filePath        String? // Путь к файлу на сервере (опционально, для обратной совместимости)
+  fileData        String? @db.Text // Base64 данные изображения (data:image format)
+  fileSize        Int // Размер файла в байтах
+  mimeType        String // MIME тип (image/jpeg, image/png и т.д.)
+  description     String? // Описание файла
+  createdAt       DateTime @default(now())
+
+  medicalRecord MedicalRecord? @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  uploadedBy    User           @relation("UploadedFiles", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([medicalRecordId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("file_attachments")
 }

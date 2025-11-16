@@ -62,6 +62,30 @@ export const useUsersStore = defineStore('users', {
       }
     },
 
+    async fetchUser(userId: string) {
+      this.loading = true
+      this.error = null
+
+      try {
+        const { $api } = useNuxtApp()
+        const user = await $api.get<User>(`/users/${userId}`)
+        
+        // Обновляем пользователя в списке, если он там есть
+        const index = this.users.findIndex((u) => u.id === userId)
+        if (index !== -1) {
+          this.users[index] = user
+        }
+        
+        return user
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Ошибка загрузки пользователя'
+        this.error = errorMessage
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
     async updateUser(userId: string, dto: UpdateUserDto) {
       this.loading = true
       this.error = null

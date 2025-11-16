@@ -6,6 +6,9 @@ export class AppointmentResponseDto {
   endTime!: string;
   notes?: string;
   status!: string;
+  recurrenceRule?: string; // daily, weekly, monthly
+  recurrenceEndDate?: string;
+  parentAppointmentId?: string;
   createdAt!: string;
   updatedAt!: string;
   patient?: {
@@ -14,6 +17,7 @@ export class AppointmentResponseDto {
     lastName: string;
     email?: string;
     phone?: string;
+    userId?: string;
   };
   doctor?: {
     id: string;
@@ -22,5 +26,7 @@ export class AppointmentResponseDto {
     specialization?: string;
     email?: string;
     phone?: string;
+    userId?: string;
+    color?: string;
   };
 }

@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import type { Appointment } from '~/types/appointment'
+import type { MedicalRecord } from '~/types/medical-record'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale/ru'
+import { useMedicalRecordsStore } from '~/store/medical-records'
+import { useAuthStore } from '~/store/auth'
+import MedicalRecordView from '~/components/MedicalRecordView.vue'
+import MedicalRecordForm from '~/components/MedicalRecordForm.vue'
+import MedicalRecordCompact from '~/components/MedicalRecordCompact.vue'
 
 type Props = {
   appointment: Appointment | null
@@ -20,6 +26,97 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emits>()
+
+const medicalRecordsStore = useMedicalRecordsStore()
+const authStore = useAuthStore()
+
+const medicalRecord = ref<MedicalRecord | null>(null)
+const isLoadingRecord = ref(false)
+const isRecordFormOpen = ref(false)
+const isRecordDetailOpen = ref(false)
+
+const canEditRecord = computed(() => {
+  if (!props.appointment || !authStore.user) return false
+  // Врач может редактировать свои записи, администраторы - все
+  return (
+    props.appointment.doctorId === authStore.user.id ||
+    ['developer', 'rootUser', 'admin'].includes(authStore.user.role)
+  )
+})
+
+const canCreateRecord = computed(() => {
+  if (!props.appointment || !authStore.user) return false
+  // Врач может создавать записи для своих приёмов, администраторы - для всех
+  return (
+    props.appointment.doctorId === authStore.user.id ||
+    ['developer', 'rootUser', 'admin'].includes(authStore.user.role)
+  )
+})
+
+const loadMedicalRecord = async () => {
+  if (!props.appointment?.id || !props.isOpen) return
+  if (isLoadingRecord.value) return // Предотвращаем дублирование запросов
+
+  isLoadingRecord.value = true
+  try {
+    await medicalRecordsStore.fetchMedicalRecords({
+      appointmentId: props.appointment.id,
+    })
+    medicalRecord.value = medicalRecordsStore.getRecordByAppointmentId(props.appointment.id) || null
+  } catch (error) {
+    console.error('Error loading medical record:', error)
+  } finally {
+    isLoadingRecord.value = false
+  }
+}
+
+// Объединяем оба watch в один, чтобы избежать дублирования запросов
+watch([() => props.appointment?.id, () => props.isOpen], async ([appointmentId, isOpen]) => {
+  if (appointmentId && isOpen) {
+    await loadMedicalRecord()
+  }
+}, { immediate: false })
+
+const handleCreateRecord = () => {
+  isRecordFormOpen.value = true
+}
+
+const handleEditRecord = () => {
+  isRecordDetailOpen.value = false
+  isRecordFormOpen.value = true
+}
+
+const handleRecordClick = () => {
+  isRecordDetailOpen.value = true
+}
+
+const handleRecordDetailClose = () => {
+  isRecordDetailOpen.value = false
+}
+
+const handleDeleteRecord = async () => {
+  if (!medicalRecord.value) return
+
+  if (confirm('Вы уверены, что хотите удалить эту медицинскую запись?')) {
+    try {
+      await medicalRecordsStore.deleteMedicalRecord(medicalRecord.value.id)
+      medicalRecord.value = null
+    } catch (error) {
+      console.error('Error deleting medical record:', error)
+    }
+  }
+}
+
+const handleRecordSaved = async (record: MedicalRecord) => {
+  medicalRecord.value = record
+  isRecordFormOpen.value = false
+  // Перезагружаем запись, чтобы получить обновленные данные включая файлы
+  await loadMedicalRecord()
+}
+
+const handleRecordFormClose = () => {
+  isRecordFormOpen.value = false
+}
 
 const handleEdit = () => {
   emit('edit')
@@ -177,6 +274,43 @@ const getStatusColor = (status: string) => {
             </div>
           </div>
 
+          <!-- Медицинская запись -->
+          <div class="pt-4 border-t border-gray-200">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold text-gray-900">
+                Медицинская запись
+              </h3>
+              <div v-if="canCreateRecord || canEditRecord" class="flex gap-2">
+                <button
+                  v-if="!medicalRecord && canCreateRecord"
+                  type="button"
+                  class="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                  @click="handleCreateRecord"
+                >
+                  Создать запись
+                </button>
+              </div>
+            </div>
+
+            <div v-if="isLoadingRecord" class="text-center py-4 text-gray-500">
+              Загрузка...
+            </div>
+
+            <div v-else-if="medicalRecord">
+              <MedicalRecordCompact
+                :record="medicalRecord"
+                :show-actions="canEditRecord"
+                @click="handleRecordClick"
+                @edit="handleEditRecord"
+                @delete="handleDeleteRecord"
+              />
+            </div>
+
+            <div v-else class="text-center py-4 text-gray-500 italic">
+              Медицинская запись не создана
+            </div>
+          </div>
+
           <!-- Даты создания и обновления -->
           <div class="pt-4 border-t border-gray-200">
             <div class="text-xs text-gray-500">
@@ -213,6 +347,56 @@ const getStatusColor = (status: string) => {
           >
             Редактировать
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Форма медицинской записи -->
+    <MedicalRecordForm
+      v-if="isRecordFormOpen && appointment"
+      :appointment="appointment"
+      :record="medicalRecord"
+      @close="handleRecordFormClose"
+      @saved="handleRecordSaved"
+    />
+
+    <!-- Детальное окно просмотра медицинской записи -->
+    <div
+      v-if="isRecordDetailOpen && medicalRecord"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      @click.self="handleRecordDetailClose"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+          <h2 class="text-2xl font-bold text-gray-900">
+            Медицинская запись
+          </h2>
+          <button
+            class="text-gray-400 hover:text-gray-600 transition-colors"
+            @click="handleRecordDetailClose"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="p-6">
+          <MedicalRecordView
+            :record="medicalRecord"
+            :show-actions="canEditRecord"
+            @edit="handleEditRecord"
+            @delete="handleDeleteRecord"
+          />
         </div>
       </div>
     </div>

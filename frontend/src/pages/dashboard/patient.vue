@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { useAuthStore } from '~/store/auth'
 import { useAppointmentsStore } from '~/store/appointments'
 import { usePatientsStore } from '~/store/patients'
+import { useMedicalRecordsStore } from '~/store/medical-records'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -12,6 +13,7 @@ definePageMeta({
 const authStore = useAuthStore()
 const appointmentsStore = useAppointmentsStore()
 const patientsStore = usePatientsStore()
+const medicalRecordsStore = useMedicalRecordsStore()
 
 // Находим пациента по email пользователя
 const currentPatient = computed(() => {
@@ -41,6 +43,7 @@ onMounted(async () => {
   await Promise.all([
     appointmentsStore.fetchAppointments(),
     patientsStore.fetchPatients(),
+    medicalRecordsStore.fetchMedicalRecords({ patientId: authStore.user?.id }),
   ])
 })
 </script>

@@ -1,4 +1,4 @@
-import { IsString, IsDateString, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsDateString, IsOptional, IsUUID, IsIn } from 'class-validator';
 
 export class CreateAppointmentDto {
   @IsUUID()
@@ -20,4 +20,13 @@ export class CreateAppointmentDto {
   @IsString()
   @IsOptional()
   status?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(['daily', 'weekly', 'monthly'])
+  recurrenceRule?: string; // daily, weekly, monthly
+
+  @IsDateString()
+  @IsOptional()
+  recurrenceEndDate?: string; // Дата окончания повторения
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAuthStore } from '~/store/auth'
+import NotificationsDropdown from '~/components/NotificationsDropdown.vue'
 
 const authStore = useAuthStore()
 
@@ -7,8 +8,7 @@ const links = computed(() => {
   const baseLinks = [
     { label: 'Главная', to: '/', roles: ['developer', 'rootUser', 'admin'] },
     { label: 'Пользователи', to: '/users', roles: ['developer', 'rootUser', 'admin'] },
-    { label: 'Пациенты', to: '/patients', roles: ['developer', 'rootUser', 'admin'] },
-    { label: 'Врачи', to: '/doctors', roles: ['developer', 'rootUser', 'admin'] },
+    { label: 'Рабочие места', to: '/workplaces', roles: ['developer', 'rootUser', 'admin'] },
     { label: 'Расписание', to: '/schedule', roles: ['developer', 'rootUser', 'doctor', 'admin'] },
   ]
 
@@ -54,6 +54,7 @@ const handleLogout = async () => {
             v-if="authStore.isAuthenticated"
             class="flex items-center gap-4"
           >
+            <NotificationsDropdown />
             <NuxtLink
               :to="authStore.dashboardPath"
               class="px-3 py-2 rounded hover:bg-blue-700 transition-colors"

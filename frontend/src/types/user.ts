@@ -7,6 +7,7 @@ export interface User {
   dateOfBirth?: string | null
   address?: string | null
   medicalHistory?: string | null
+  color?: string | null
   role: string
   createdAt: string
   updatedAt: string
@@ -21,6 +22,7 @@ export interface CreateUserDto {
   dateOfBirth?: string
   address?: string
   medicalHistory?: string
+  color?: string
   role?: 'developer' | 'rootUser' | 'doctor' | 'patient' | 'admin'
 }
 
@@ -33,6 +35,7 @@ export interface UpdateUserDto {
   dateOfBirth?: string
   address?: string
   medicalHistory?: string
+  color?: string
   role?: 'developer' | 'rootUser' | 'doctor' | 'patient' | 'admin'
 }
 

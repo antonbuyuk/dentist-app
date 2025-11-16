@@ -47,60 +47,35 @@ export class PatientsService {
     const tempPassword = `temp${Math.random().toString(36).slice(-8)}`;
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    // Создаем пользователя и пациента в транзакции
-    const result = await this.prisma.$transaction(async (tx) => {
-      // Создаем пользователя
-      const user = await tx.user.create({
-        data: {
-          email: userEmail,
-          password: hashedPassword,
-          firstName: createPatientDto.firstName,
-          lastName: createPatientDto.lastName,
-          role: 'patient',
-        },
-      });
-
-      // Создаем пациента и связываем с пользователем
-      const patient = await tx.patient.create({
-        data: {
-          firstName: createPatientDto.firstName,
-          lastName: createPatientDto.lastName,
-          email: createPatientDto.email,
-          phone: createPatientDto.phone,
-          dateOfBirth: createPatientDto.dateOfBirth
-            ? new Date(createPatientDto.dateOfBirth)
-            : null,
-          address: createPatientDto.address,
-          notes: createPatientDto.notes,
-          userId: user.id,
-        },
-      });
-
-      return patient;
+    // Создаем пользователя с ролью patient
+    const user = await this.prisma.user.create({
+      data: {
+        email: userEmail,
+        password: hashedPassword,
+        firstName: createPatientDto.firstName,
+        lastName: createPatientDto.lastName,
+        phone: createPatientDto.phone,
+        dateOfBirth: createPatientDto.dateOfBirth
+          ? new Date(createPatientDto.dateOfBirth)
+          : null,
+        address: createPatientDto.address,
+        role: 'patient',
+      },
     });
 
-    return this.mapToDto(result);
+    return this.mapToDto(user);
   }
 
   async findAll(): Promise<PatientResponseDto[]> {
     try {
-      const patients = await this.prisma.patient.findMany({
+      // Получаем всех пользователей с ролью patient
+      const patients = await this.prisma.user.findMany({
+        where: {
+          role: 'patient',
+        },
         orderBy: { createdAt: 'desc' },
       });
-      return patients.map(
-        (p: {
-          id: string;
-          firstName: string;
-          lastName: string;
-          email: string | null;
-          phone: string | null;
-          dateOfBirth: Date | null;
-          address: string | null;
-          notes: string | null;
-          createdAt: Date;
-          updatedAt: Date;
-        }) => this.mapToDto(p),
-      );
+      return patients.map((user) => this.mapToDto(user));
     } catch (error) {
       console.error('Error fetching patients from database:', error);
       throw error;
@@ -108,8 +83,11 @@ export class PatientsService {
   }
 
   async findOne(id: string): Promise<PatientResponseDto> {
-    const patient = await this.prisma.patient.findUnique({
-      where: { id },
+    const patient = await this.prisma.user.findFirst({
+      where: {
+        id,
+        role: 'patient',
+      },
     });
 
     if (!patient) {
@@ -123,28 +101,18 @@ export class PatientsService {
     id: string,
     updatePatientDto: UpdatePatientDto,
   ): Promise<PatientResponseDto> {
-    const existing = await this.prisma.patient.findUnique({
-      where: { id },
-      include: { user: true },
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        id,
+        role: 'patient',
+      },
     });
 
     if (!existing) {
       throw new NotFoundException(`Patient with ID ${id} not found`);
     }
 
-    // Если есть связанный пользователь, обновляем его данные
-    if (existing.userId) {
-      await this.prisma.user.update({
-        where: { id: existing.userId },
-        data: {
-          firstName: updatePatientDto.firstName,
-          lastName: updatePatientDto.lastName,
-          email: updatePatientDto.email || existing.user?.email,
-        },
-      });
-    }
-
-    const patient = await this.prisma.patient.update({
+    const patient = await this.prisma.user.update({
       where: { id },
       data: {
         firstName: updatePatientDto.firstName,
@@ -155,7 +123,6 @@ export class PatientsService {
           ? new Date(updatePatientDto.dateOfBirth)
           : undefined,
         address: updatePatientDto.address,
-        notes: updatePatientDto.notes,
       },
     });
 
@@ -163,42 +130,44 @@ export class PatientsService {
   }
 
   async remove(id: string): Promise<void> {
-    const existing = await this.prisma.patient.findUnique({
-      where: { id },
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        id,
+        role: 'patient',
+      },
     });
 
     if (!existing) {
       throw new NotFoundException(`Patient with ID ${id} not found`);
     }
 
-    await this.prisma.patient.delete({
+    await this.prisma.user.delete({
       where: { id },
     });
   }
 
-  private mapToDto(patient: {
+  private mapToDto(user: {
     id: string;
-    firstName: string;
-    lastName: string;
-    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
     phone: string | null;
     dateOfBirth: Date | null;
     address: string | null;
-    notes: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): PatientResponseDto {
     return {
-      id: patient.id,
-      firstName: patient.firstName,
-      lastName: patient.lastName,
-      email: patient.email ?? undefined,
-      phone: patient.phone ?? undefined,
-      dateOfBirth: patient.dateOfBirth?.toISOString(),
-      address: patient.address ?? undefined,
-      notes: patient.notes ?? undefined,
-      createdAt: patient.createdAt.toISOString(),
-      updatedAt: patient.updatedAt.toISOString(),
+      id: user.id,
+      firstName: user.firstName ?? '',
+      lastName: user.lastName ?? '',
+      email: user.email,
+      phone: user.phone ?? undefined,
+      dateOfBirth: user.dateOfBirth?.toISOString(),
+      address: user.address ?? undefined,
+      notes: undefined, // User не имеет notes, но можно использовать medicalHistory если нужно
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
     };
   }
 }

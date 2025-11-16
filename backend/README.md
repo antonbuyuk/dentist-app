@@ -23,7 +23,37 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Backend приложения для управления стоматологической клиникой на базе NestJS.
+
+## Настройка окружения
+
+Перед запуском проекта создайте файл `.env` в корне директории `backend` на основе примера.
+
+**Подробная инструкция:** См. [ENV_EXAMPLE.md](./ENV_EXAMPLE.md)
+
+### Минимальные настройки для запуска:
+
+```env
+DATABASE_URL="postgresql://user:password@localhost:5432/dentist_app?schema=public"
+JWT_SECRET="your-secret-key-change-in-production"
+JWT_EXPIRES_IN="7d"
+PORT=3001
+```
+
+### Email-уведомления (опционально):
+
+Для включения email-уведомлений добавьте в `.env`:
+
+```env
+EMAIL_ENABLED=true
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+```
+
+**Важно:** Для Gmail необходимо создать пароль приложения. Подробнее в [ENV_EXAMPLE.md](./ENV_EXAMPLE.md).
 
 ## Project setup
 

@@ -7,6 +7,7 @@ export class UserResponseDto {
   dateOfBirth: Date | null;
   address: string | null;
   medicalHistory: string | null;
+  color: string | null;
   role!: string;
   createdAt!: Date;
   updatedAt!: Date;

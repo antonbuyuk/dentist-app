@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { Appointment, CreateAppointmentDto } from '~/types/appointment'
-import { usePatientsStore } from '~/store/patients'
+import { useUsersStore } from '~/store/users'
 import { useDoctorsStore } from '~/store/doctors'
+import { computed } from 'vue'
 
 type Props = {
   appointment?: Appointment | null
@@ -24,8 +25,18 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
-const patientsStore = usePatientsStore()
+const usersStore = useUsersStore()
 const doctorsStore = useDoctorsStore()
+
+// Фильтруем только пользователей с ролью 'patient'
+const patients = computed(() => {
+  return usersStore.users.filter((user) => user.role === 'patient')
+})
+
+// Фильтруем только пользователей с ролью 'doctor'
+const doctors = computed(() => {
+  return usersStore.users.filter((user) => user.role === 'doctor')
+})
 
 const form = ref<CreateAppointmentDto>({
   patientId: '',
@@ -34,7 +45,11 @@ const form = ref<CreateAppointmentDto>({
   endTime: '',
   notes: '',
   status: 'scheduled',
+  recurrenceRule: undefined,
+  recurrenceEndDate: undefined,
 })
+
+const isRecurring = ref(false)
 
 const errors = ref<Partial<Record<keyof CreateAppointmentDto, string>>>({})
 const apiError = ref<string | null>(null)
@@ -42,11 +57,8 @@ const apiError = ref<string | null>(null)
 // Загружаем данные при открытии формы
 watch(() => props.isOpen, async (open) => {
   if (open) {
-    if (patientsStore.patients.length === 0) {
-      await patientsStore.fetchPatients()
-    }
-    if (doctorsStore.doctors.length === 0) {
-      await doctorsStore.fetchDoctors()
+    if (usersStore.users.length === 0) {
+      await usersStore.fetchUsers()
     }
     resetForm()
   }
@@ -58,14 +70,24 @@ const resetForm = () => {
     const startDate = new Date(props.appointment.startTime)
     const endDate = new Date(props.appointment.endTime)
 
+    // Используем userId из связанных patient и doctor, если они есть
+    // Иначе используем patientId и doctorId напрямую (для обратной совместимости)
+    const patientUserId = props.appointment.patient?.userId || props.appointment.patientId
+    const doctorUserId = props.appointment.doctor?.userId || props.appointment.doctorId
+
     form.value = {
-      patientId: props.appointment.patientId,
-      doctorId: props.appointment.doctorId,
+      patientId: patientUserId,
+      doctorId: doctorUserId,
       startTime: formatDateTimeLocal(startDate),
       endTime: formatDateTimeLocal(endDate),
       notes: props.appointment.notes || '',
       status: props.appointment.status || 'scheduled',
+      recurrenceRule: props.appointment.recurrenceRule,
+      recurrenceEndDate: props.appointment.recurrenceEndDate
+        ? formatDateTimeLocal(new Date(props.appointment.recurrenceEndDate))
+        : undefined,
     }
+    isRecurring.value = !!props.appointment.recurrenceRule
   } else {
     // Создание нового appointment
     const startDate = props.initialDate ? new Date(props.initialDate) : new Date()
@@ -84,7 +106,10 @@ const resetForm = () => {
       endTime: formatDateTimeLocal(endDate),
       notes: '',
       status: 'scheduled',
+      recurrenceRule: undefined,
+      recurrenceEndDate: undefined,
     }
+    isRecurring.value = false
   }
   errors.value = {}
   apiError.value = null
@@ -133,6 +158,27 @@ const validate = (): boolean => {
     }
   }
 
+  // Валидация повторения
+  if (isRecurring.value) {
+    if (!form.value.recurrenceRule) {
+      errors.value.recurrenceRule = 'Выберите тип повторения'
+    }
+
+    if (!form.value.recurrenceEndDate) {
+      errors.value.recurrenceEndDate = 'Укажите дату окончания повторения'
+    } else {
+      const endDate = new Date(form.value.recurrenceEndDate)
+      const startDate = form.value.startTime
+        ? new Date(form.value.startTime)
+        : null
+
+      if (startDate && endDate <= startDate) {
+        errors.value.recurrenceEndDate =
+          'Дата окончания должна быть позже даты начала'
+      }
+    }
+  }
+
   return Object.keys(errors.value).length === 0
 }
 
@@ -146,6 +192,11 @@ const handleSubmit = () => {
     ...form.value,
     startTime: new Date(form.value.startTime).toISOString(),
     endTime: new Date(form.value.endTime).toISOString(),
+    // Если повторение не включено, удаляем поля повторения
+    recurrenceRule: isRecurring.value ? form.value.recurrenceRule : undefined,
+    recurrenceEndDate: isRecurring.value && form.value.recurrenceEndDate
+      ? new Date(form.value.recurrenceEndDate).toISOString()
+      : undefined,
   }
 
   emit('submit', submitData)
@@ -201,11 +252,14 @@ watch(() => props.appointment, () => {
                   Выберите пациента
                 </option>
                 <option
-                  v-for="patient in patientsStore.patients"
+                  v-for="patient in patients"
                   :key="patient.id"
                   :value="patient.id"
                 >
-                  {{ patient.firstName }} {{ patient.lastName }}
+                  {{ patient.firstName || '' }} {{ patient.lastName || '' }}
+                  <template v-if="patient.email">
+                    ({{ patient.email }})
+                  </template>
                 </option>
               </select>
               <p
@@ -229,13 +283,13 @@ watch(() => props.appointment, () => {
                   Выберите врача
                 </option>
                 <option
-                  v-for="doctor in doctorsStore.doctors"
+                  v-for="doctor in doctors"
                   :key="doctor.id"
                   :value="doctor.id"
                 >
-                  {{ doctor.firstName }} {{ doctor.lastName }}
-                  <template v-if="doctor.specialization">
-                    - {{ doctor.specialization }}
+                  {{ doctor.firstName || '' }} {{ doctor.lastName || '' }}
+                  <template v-if="doctor.email">
+                    ({{ doctor.email }})
                   </template>
                 </option>
               </select>
@@ -318,6 +372,78 @@ watch(() => props.appointment, () => {
               class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Дополнительная информация о приёме"
             />
+          </div>
+
+          <!-- Повторяющийся приём -->
+          <div class="border-t pt-4">
+            <div class="flex items-center mb-4">
+              <input
+                id="recurring"
+                v-model="isRecurring"
+                type="checkbox"
+                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              >
+              <label
+                for="recurring"
+                class="ml-2 block text-sm font-medium text-gray-700"
+              >
+                Повторяющийся приём
+              </label>
+            </div>
+
+            <div
+              v-if="isRecurring"
+              class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pl-6 border-l-2 border-blue-200"
+            >
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Тип повторения <span class="text-red-500">*</span>
+                </label>
+                <select
+                  v-model="form.recurrenceRule"
+                  class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  :class="{ 'border-red-500': errors.recurrenceRule }"
+                >
+                  <option value="">
+                    Выберите тип
+                  </option>
+                  <option value="daily">
+                    Ежедневно
+                  </option>
+                  <option value="weekly">
+                    Еженедельно
+                  </option>
+                  <option value="monthly">
+                    Ежемесячно
+                  </option>
+                </select>
+                <p
+                  v-if="errors.recurrenceRule"
+                  class="text-red-500 text-sm mt-1"
+                >
+                  {{ errors.recurrenceRule }}
+                </p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Дата окончания повторения <span class="text-red-500">*</span>
+                </label>
+                <input
+                  v-model="form.recurrenceEndDate"
+                  type="date"
+                  class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  :class="{ 'border-red-500': errors.recurrenceEndDate }"
+                  :min="form.startTime ? form.startTime.split('T')[0] : undefined"
+                >
+                <p
+                  v-if="errors.recurrenceEndDate"
+                  class="text-red-500 text-sm mt-1"
+                >
+                  {{ errors.recurrenceEndDate }}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div
