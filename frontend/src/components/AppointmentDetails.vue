@@ -10,8 +10,8 @@ import MedicalRecordForm from '~/components/MedicalRecordForm.vue'
 import MedicalRecordCompact from '~/components/MedicalRecordCompact.vue'
 
 type Props = {
-  appointment: Appointment | null
-  isOpen: boolean
+  appointment?: Appointment | null
+  isOpen?: boolean
 }
 
 type Emits = {
@@ -159,7 +159,6 @@ const getStatusColor = (status: string) => {
   <div
     v-if="isOpen && appointment"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    @click.self="emit('close')"
   >
     <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
       <div class="p-6">
@@ -194,7 +193,18 @@ const getStatusColor = (status: string) => {
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Пациент
             </label>
-            <div class="text-gray-900">
+            <NuxtLink
+              v-if="appointment.patient?.userId || appointment.patientId"
+              :to="`/patient/${appointment.patient?.userId || appointment.patientId}`"
+              class="text-gray-900 hover:text-blue-600 hover:underline transition-colors cursor-pointer inline-block font-medium"
+              @click="emit('close')"
+            >
+              {{ appointment.patient?.firstName }} {{ appointment.patient?.lastName }}
+            </NuxtLink>
+            <div
+              v-else
+              class="text-gray-900"
+            >
               {{ appointment.patient?.firstName }} {{ appointment.patient?.lastName }}
             </div>
             <div
@@ -280,7 +290,10 @@ const getStatusColor = (status: string) => {
               <h3 class="text-lg font-semibold text-gray-900">
                 Медицинская запись
               </h3>
-              <div v-if="canCreateRecord || canEditRecord" class="flex gap-2">
+              <div
+                v-if="canCreateRecord || canEditRecord"
+                class="flex gap-2"
+              >
                 <button
                   v-if="!medicalRecord && canCreateRecord"
                   type="button"
@@ -292,7 +305,10 @@ const getStatusColor = (status: string) => {
               </div>
             </div>
 
-            <div v-if="isLoadingRecord" class="text-center py-4 text-gray-500">
+            <div
+              v-if="isLoadingRecord"
+              class="text-center py-4 text-gray-500"
+            >
               Загрузка...
             </div>
 
@@ -306,7 +322,10 @@ const getStatusColor = (status: string) => {
               />
             </div>
 
-            <div v-else class="text-center py-4 text-gray-500 italic">
+            <div
+              v-else
+              class="text-center py-4 text-gray-500 italic"
+            >
               Медицинская запись не создана
             </div>
           </div>
@@ -364,7 +383,6 @@ const getStatusColor = (status: string) => {
     <div
       v-if="isRecordDetailOpen && medicalRecord"
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      @click.self="handleRecordDetailClose"
     >
       <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">

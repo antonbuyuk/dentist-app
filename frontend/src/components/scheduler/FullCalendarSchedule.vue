@@ -7,14 +7,23 @@ import interactionPlugin from '@fullcalendar/interaction';
 import ruLocale from '@fullcalendar/core/locales/ru.js';
 import type { EventInput } from '@fullcalendar/core';
 import type { Appointment } from '~/types/appointment';
+import type { AppointmentSuggestion } from '~/store/appointment-suggestions';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   appointments: Appointment[];
+  suggestions?: AppointmentSuggestion[];
   initialDate?: Date;
-}>();
+  allowDateClick?: boolean;
+  editable?: boolean;
+}>(), {
+  allowDateClick: true,
+  editable: true,
+  suggestions: () => [],
+});
 
 const emit = defineEmits<{
   (e: 'eventClick', event: { id: string }): void;
+  (e: 'suggestionClick', suggestion: { id: string }): void;
   (e: 'eventDrop', event: { id: string; start: string; end: string }): void;
   (e: 'eventResize', event: { id: string; start: string; end: string }): void;
   (e: 'dateClick', date: Date): void;
@@ -66,9 +75,53 @@ const getDoctorColor = (doctorId?: string, doctorColor?: string): string => {
   return available[index] || '#3b82f6' // fallback на синий цвет
 }
 
+// Преобразуем предложения в формат FullCalendar
+const suggestionEvents = computed<EventInput[]>(() => {
+  return props.suggestions
+    .filter((s) => s.status === 'pending')
+    .map((suggestion) => {
+      const patientName = suggestion.patient
+        ? `${suggestion.patient.firstName || ''} ${suggestion.patient.lastName || ''}`.trim() || 'Неизвестный пациент'
+        : 'Неизвестный пациент'
+      const doctorName = suggestion.doctor
+        ? `${suggestion.doctor.firstName || ''} ${suggestion.doctor.lastName || ''}`.trim() || 'Неизвестный врач'
+        : 'Неизвестный врач'
+
+      const title = `${patientName} (${doctorName}) [Предложение]`
+      const startTime = suggestion.startTime ? new Date(suggestion.startTime).toISOString() : new Date().toISOString()
+      const endTime = suggestion.endTime ? new Date(suggestion.endTime).toISOString() : new Date().toISOString()
+
+      // Получаем цвет для врача
+      const doctorBaseColor = getDoctorColor(suggestion.doctorId, suggestion.doctor?.color || undefined)
+
+      return {
+        id: `suggestion-${suggestion.id}`,
+        title,
+        start: startTime,
+        end: endTime,
+        extendedProps: {
+          suggestionId: suggestion.id,
+          patientId: suggestion.patientId,
+          doctorId: suggestion.doctorId,
+          patientName,
+          doctorName,
+          notes: suggestion.notes,
+          isSuggestion: true,
+        },
+        backgroundColor: 'transparent', // Прозрачный фон
+        borderColor: doctorBaseColor, // Цветной бордер
+        borderWidth: 3, // Толстый бордер
+        classNames: ['appointment-suggestion', `doctor-${suggestion.doctorId || 'unknown'}`],
+        display: 'block',
+        allDay: false,
+        editable: false, // Предложения нельзя перемещать
+      }
+    })
+})
+
 // Преобразуем appointments в формат FullCalendar
 const calendarEvents = computed<EventInput[]>(() => {
-  return props.appointments.map((apt) => {
+  const appointmentEvents = props.appointments.map((apt) => {
     const patientName = apt.patient
       ? `${apt.patient.firstName || ''} ${apt.patient.lastName || ''}`.trim() || 'Неизвестный пациент'
       : 'Неизвестный пациент'
@@ -109,6 +162,9 @@ const calendarEvents = computed<EventInput[]>(() => {
       allDay: false, // Явно указываем, что это не событие на весь день
     }
   })
+
+  // Объединяем приёмы и предложения
+  return [...appointmentEvents, ...suggestionEvents.value]
 })
 
 // Палитра цветов для врачей (яркие, контрастные цвета)
@@ -170,7 +226,14 @@ const adjustColorBrightness = (hex: string, brightness: number, hueShift: number
 }
 
 const handleEventClick = (info: any) => {
-  emit('eventClick', { id: info.event.id });
+  const extendedProps = info.event.extendedProps || {}
+
+  // Если это предложение, отправляем специальное событие
+  if (extendedProps.isSuggestion) {
+    emit('suggestionClick', { id: extendedProps.suggestionId })
+  } else {
+    emit('eventClick', { id: info.event.id })
+  }
 };
 
 const handleEventDrop = (info: any) => {
@@ -241,13 +304,13 @@ const calendarOptions = computed(() => ({
   allDaySlot: false,
   height: 'auto',
   events: calendarEvents.value,
-  editable: true,
+  editable: props.editable,
   droppable: false,
-  eventResizableFromStart: true,
+  eventResizableFromStart: props.editable,
   eventClick: handleEventClick,
   eventDrop: handleEventDrop,
   eventResize: handleEventResize,
-  dateClick: handleDateClick,
+  dateClick: props.allowDateClick ? handleDateClick : undefined,
   datesSet: () => {
     // datesSet вызывается слишком часто, не используем его для viewChange
   },
@@ -256,15 +319,19 @@ const calendarOptions = computed(() => ({
     const event = arg.event
     const extendedProps = event.extendedProps || {}
     const view = arg.view.type
+    const isSuggestion = extendedProps.isSuggestion || false
 
     // Получаем данные из extendedProps или из title
     const patientName = extendedProps.patientName || event.title?.split(' (')[0] || 'Приём'
     const doctorName = extendedProps.doctorName || ''
 
+    // Цвет текста: черный для предложений, белый для обычных приёмов
+    const textColor = isSuggestion ? '#000000' : 'white'
+
     // Для timeGrid видов (день/неделя) используем простое отображение
     if (view === 'timeGridDay' || view === 'timeGridWeek') {
       return {
-        html: `<div style="padding: 2px 4px; font-size: 11px; line-height: 1.3; color: white;">
+        html: `<div style="padding: 2px 4px; font-size: 11px; line-height: 1.3; color: ${textColor};">
           <div style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${patientName}</div>
           ${doctorName ? `<div style="font-size: 9px; opacity: 0.9; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doctorName}</div>` : ''}
         </div>`,
@@ -275,11 +342,11 @@ const calendarOptions = computed(() => ({
     const time = arg.timeText || ''
 
     return {
-      html: `<div class="fc-event-main-frame">
-        ${time ? `<div class="fc-event-time">${time}</div>` : ''}
+      html: `<div class="fc-event-main-frame" style="color: ${textColor};">
+        ${time ? `<div class="fc-event-time" style="color: ${textColor};">${time}</div>` : ''}
         <div class="fc-event-title-container">
-          <div class="fc-event-title">${patientName}</div>
-          ${doctorName ? `<div class="fc-event-doctor">${doctorName}</div>` : ''}
+          <div class="fc-event-title" style="color: ${textColor};">${patientName}</div>
+          ${doctorName ? `<div class="fc-event-doctor" style="color: ${textColor};">${doctorName}</div>` : ''}
         </div>
       </div>`,
     }
@@ -399,6 +466,29 @@ defineExpose({
 /* Стили для завершённых приёмов - более прозрачные */
 .fc-event.status-completed {
   opacity: 0.85;
+}
+
+/* Стили для предложений приёмов - прозрачный фон, цветной бордер */
+.fc-event.appointment-suggestion {
+  background-color: transparent !important;
+  border-width: 3px !important;
+  border-style: solid !important;
+  opacity: 0.9;
+  font-weight: 600;
+  color: #000000 !important; /* Черный цвет текста */
+}
+
+.fc-event.appointment-suggestion:hover {
+  opacity: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Черный цвет текста для всех элементов внутри предложения */
+.fc-event.appointment-suggestion .fc-event-title,
+.fc-event.appointment-suggestion .fc-event-main,
+.fc-event.appointment-suggestion .fc-event-main-frame,
+.fc-event.appointment-suggestion div {
+  color: #000000 !important;
 }
 
 .fc-timegrid-slot {

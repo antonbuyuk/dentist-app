@@ -3,10 +3,14 @@ import { onMounted, ref, computed } from 'vue'
 import FullCalendarSchedule from '~/components/scheduler/FullCalendarSchedule.vue'
 import AppointmentForm from '~/components/AppointmentForm.vue'
 import AppointmentDetails from '~/components/AppointmentDetails.vue'
+import AppointmentSuggestionForm from '~/components/AppointmentSuggestionForm.vue'
+import AppointmentSuggestionDetails from '~/components/AppointmentSuggestionDetails.vue'
 import { useAppointmentsStore } from '~/store/appointments'
 import { useDoctorsStore } from '~/store/doctors'
 import { useAuthStore } from '~/store/auth'
+import { useAppointmentSuggestionsStore } from '~/store/appointment-suggestions'
 import { useScheduleSocket } from '~/composables/useScheduleSocket'
+import { useToast } from '~/composables/useToast'
 import type { Appointment, CreateAppointmentDto } from '~/types/appointment'
 
 definePageMeta({
@@ -17,6 +21,7 @@ definePageMeta({
 const appointmentsStore = useAppointmentsStore();
 const doctorsStore = useDoctorsStore();
 const authStore = useAuthStore();
+const suggestionsStore = useAppointmentSuggestionsStore();
 const calendarRef = ref<InstanceType<typeof FullCalendarSchedule>>();
 const currentDate = ref(new Date());
 
@@ -33,9 +38,17 @@ const editingAppointment = ref<Appointment | null>(null);
 const formInitialDate = ref<Date | undefined>(undefined);
 const formInitialDoctorId = ref<string | undefined>(undefined);
 
+// Состояние формы предложения даты приёма (для врачей)
+const isSuggestionFormOpen = ref(false);
+const suggestionDate = ref<Date | undefined>(undefined);
+
 // Состояние модального окна деталей
 const isDetailsOpen = ref(false);
 const viewingAppointment = ref<Appointment | null>(null);
+
+// Состояние модального окна предложения
+const isSuggestionDetailsOpen = ref(false);
+const viewingSuggestion = ref<any>(null);
 
 // Статусы приёмов
 const statusOptions = [
@@ -140,10 +153,24 @@ const filteredAppointments = computed(() => {
 onMounted(async () => {
   await appointmentsStore.fetchAppointments();
   await doctorsStore.fetchDoctors();
+
+  // Загружаем предложения для администраторов
+  if (authStore.isAdmin || authStore.isDeveloper || authStore.isRootUser) {
+    await suggestionsStore.fetchSuggestions();
+  }
 });
 
 // Обработчики событий календаря
 const handleEventDrop = async (event: { id: string; start: string; end: string }) => {
+  // Врачи не могут перемещать приёмы
+  if (authStore.isDoctor) {
+    const { info } = useToast();
+    info('Врачи не могут перемещать приёмы. Используйте функцию "Предложить дату приёма" для изменения времени.');
+    // Откатываем перемещение
+    await appointmentsStore.fetchAppointments();
+    return;
+  }
+
   try {
     await appointmentsStore.updateAppointment(event.id, {
       startTime: event.start,
@@ -156,6 +183,15 @@ const handleEventDrop = async (event: { id: string; start: string; end: string }
 };
 
 const handleEventResize = async (event: { id: string; start: string; end: string }) => {
+  // Врачи не могут изменять длительность приёмов
+  if (authStore.isDoctor) {
+    const { info } = useToast();
+    info('Врачи не могут изменять длительность приёмов. Используйте функцию "Предложить дату приёма" для изменения времени.');
+    // Откатываем изменение
+    await appointmentsStore.fetchAppointments();
+    return;
+  }
+
   try {
     await appointmentsStore.updateAppointment(event.id, {
       startTime: event.start,
@@ -227,6 +263,13 @@ const handleDetailsClose = () => {
 };
 
 const handleDetailsEdit = () => {
+  // Врачи не могут редактировать приёмы напрямую
+  if (authStore.isDoctor) {
+    const { info } = useToast();
+    info('Врачи не могут редактировать приёмы. Используйте функцию "Предложить дату приёма" для изменения времени.');
+    return;
+  }
+
   if (viewingAppointment.value) {
     editingAppointment.value = viewingAppointment.value;
     formInitialDate.value = undefined;
@@ -237,6 +280,13 @@ const handleDetailsEdit = () => {
 
 const handleDetailsDelete = async () => {
   if (!viewingAppointment.value) return;
+
+  // Врачи не могут удалять приёмы
+  if (authStore.isDoctor) {
+    const { info } = useToast();
+    info('Врачи не могут удалять приёмы. Обратитесь к администратору.');
+    return;
+  }
 
   try {
     await appointmentsStore.deleteAppointment(viewingAppointment.value.id);
@@ -250,6 +300,92 @@ const handleDetailsDelete = async () => {
   } catch (error) {
     console.error('Ошибка при удалении приёма:', error);
     // Ошибка уже обработана в store
+  }
+};
+
+const handleAppointmentSuggestion = (date: Date) => {
+  // Открываем форму предложения даты приёма для врача
+  suggestionDate.value = date;
+  isSuggestionFormOpen.value = true;
+};
+
+const handleSuggestionClose = () => {
+  isSuggestionFormOpen.value = false;
+  suggestionDate.value = undefined;
+};
+
+const handleSuggestionSubmit = async (data: { patientId: string; startTime: string; endTime: string; notes?: string }) => {
+  const { success, error } = useToast();
+
+  try {
+    await suggestionsStore.createSuggestion({
+      patientId: data.patientId,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      notes: data.notes,
+    });
+    success('Предложение даты приёма отправлено администратору на рассмотрение');
+    handleSuggestionClose();
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Ошибка отправки предложения';
+    error(errorMessage);
+  }
+};
+
+const handleSuggestionClick = async (event: { id: string }) => {
+  try {
+    const suggestion = await suggestionsStore.fetchSuggestion(event.id);
+    viewingSuggestion.value = suggestion;
+    isSuggestionDetailsOpen.value = true;
+  } catch (err) {
+    const { error } = useToast();
+    error('Ошибка загрузки предложения');
+  }
+};
+
+const handleSuggestionDetailsClose = () => {
+  isSuggestionDetailsOpen.value = false;
+  viewingSuggestion.value = null;
+};
+
+const handleApproveSuggestion = async () => {
+  if (!viewingSuggestion.value) return;
+
+  const { success, error } = useToast();
+
+  try {
+    await suggestionsStore.updateSuggestion(viewingSuggestion.value.id, { status: 'approved' });
+    success('Предложение одобрено. Приём создан.');
+
+    // Обновляем списки
+    await Promise.all([
+      appointmentsStore.fetchAppointments(),
+      suggestionsStore.fetchSuggestions(),
+    ]);
+
+    handleSuggestionDetailsClose();
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Ошибка одобрения предложения';
+    error(errorMessage);
+  }
+};
+
+const handleRejectSuggestion = async () => {
+  if (!viewingSuggestion.value) return;
+
+  const { success, error } = useToast();
+
+  try {
+    await suggestionsStore.updateSuggestion(viewingSuggestion.value.id, { status: 'rejected' });
+    success('Предложение отклонено.');
+
+    // Обновляем список предложений
+    await suggestionsStore.fetchSuggestions();
+
+    handleSuggestionDetailsClose();
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Ошибка отклонения предложения';
+    error(errorMessage);
   }
 };
 
@@ -432,10 +568,18 @@ onUpdated((evt) => {
             </div>
           </div>
           <button
+            v-if="!authStore.isDoctor"
             class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
             @click="handleDateClick(new Date())"
           >
             + Новый приём
+          </button>
+          <button
+            v-else
+            class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors whitespace-nowrap"
+            @click="handleAppointmentSuggestion(new Date())"
+          >
+            Предложить дату приёма
           </button>
         </div>
         <!-- Быстрые фильтры -->
@@ -476,8 +620,12 @@ onUpdated((evt) => {
       <FullCalendarSchedule
         ref="calendarRef"
         :appointments="filteredAppointments"
+        :suggestions="authStore.isAdmin || authStore.isDeveloper || authStore.isRootUser ? suggestionsStore.suggestions : []"
         :initial-date="currentDate"
+        :allow-date-click="!authStore.isDoctor"
+        :editable="!authStore.isDoctor"
         @event-click="handleEventClick"
+        @suggestion-click="handleSuggestionClick"
         @event-drop="handleEventDrop"
         @event-resize="handleEventResize"
         @date-click="handleDateClick"
@@ -500,6 +648,21 @@ onUpdated((evt) => {
       @close="handleDetailsClose"
       @edit="handleDetailsEdit"
       @delete="handleDetailsDelete"
+    />
+
+    <AppointmentSuggestionForm
+      :is-open="isSuggestionFormOpen"
+      :initial-date="suggestionDate"
+      @close="handleSuggestionClose"
+      @submit="handleSuggestionSubmit"
+    />
+
+    <AppointmentSuggestionDetails
+      :suggestion="viewingSuggestion"
+      :is-open="isSuggestionDetailsOpen"
+      @close="handleSuggestionDetailsClose"
+      @approve="handleApproveSuggestion"
+      @reject="handleRejectSuggestion"
     />
   </div>
 </template>

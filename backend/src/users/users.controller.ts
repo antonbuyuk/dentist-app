@@ -55,14 +55,29 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  @Get('patients')
+  async findPatients(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<UserResponseDto[]> {
+    // Врачи и администраторы могут просматривать список пациентов
+    const allowedRoles = ['developer', 'rootUser', 'doctor', 'admin'];
+    if (!allowedRoles.includes(req.user.role)) {
+      throw new ForbiddenException(
+        'Недостаточно прав для просмотра списка пациентов',
+      );
+    }
+
+    return this.usersService.findPatients();
+  }
+
   @Get(':id')
   async findOne(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<UserResponseDto> {
-    // Проверяем права доступа
+    // Проверяем права доступа: админы могут просматривать всех, пользователи - только свой профиль
     const allowedRoles = ['developer', 'rootUser', 'admin'];
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!allowedRoles.includes(req.user.role) && req.user.id !== id) {
       throw new ForbiddenException(
         'Недостаточно прав для просмотра пользователя',
       );

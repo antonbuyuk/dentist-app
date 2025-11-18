@@ -13,6 +13,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { EmailModule } from './email/email.module';
 import { MedicalRecordsModule } from './medical-records/medical-records.module';
 import { FilesModule } from './files/files.module';
+import { AppointmentSuggestionsModule } from './appointment-suggestions/appointment-suggestions.module';
 import { ScheduleGateway } from './schedule.gateway';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -34,6 +35,7 @@ import { PrismaModule } from './prisma/prisma.module';
     EmailModule,
     MedicalRecordsModule,
     FilesModule,
+    AppointmentSuggestionsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ScheduleGateway],

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import type { Appointment } from '~/types/appointment'
 import { useAuthStore } from '~/store/auth'
 import { useAppointmentsStore } from '~/store/appointments'
 import { useDoctorsStore } from '~/store/doctors'
@@ -39,9 +38,14 @@ const upcomingAppointments = computed(() => {
     .slice(0, 5)
 })
 
-const handleAppointmentClick = (appointment: Appointment) => {
-  // Можно открыть детали приёма или перейти к расписанию
-  navigateTo(`/schedule?appointmentId=${appointment.id}`)
+const handleAppointmentClick = () => {
+  // Обработчик уже реализован в виджете, здесь можно добавить дополнительную логику
+  // или оставить пустым, так как виджет сам открывает модальное окно
+}
+
+const handleWidgetRefresh = async () => {
+  // Обновляем список приёмов после изменений в виджете
+  await appointmentsStore.fetchAppointments()
 }
 
 onMounted(async () => {
@@ -99,6 +103,7 @@ onMounted(async () => {
         :appointments="myAppointments"
         :doctor-id="currentDoctor?.id"
         @appointment-click="handleAppointmentClick"
+        @refresh="handleWidgetRefresh"
       />
 
       <div class="bg-white rounded-lg shadow p-6">

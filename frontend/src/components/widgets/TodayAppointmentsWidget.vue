@@ -2,6 +2,8 @@
 import type { Appointment } from '~/types/appointment'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
+import AppointmentDetails from '~/components/AppointmentDetails.vue'
+import { useAppointmentsStore } from '~/store/appointments'
 
 const props = defineProps<{
   appointments: Appointment[]
@@ -10,7 +12,14 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   appointmentClick: [appointment: Appointment]
+  refresh: []
 }>()
+
+const appointmentsStore = useAppointmentsStore()
+
+// Состояние модального окна деталей
+const isDetailsOpen = ref(false)
+const viewingAppointment = ref<Appointment | null>(null)
 
 // Фильтруем приёмы на сегодня
 const todayAppointments = computed(() => {
@@ -68,6 +77,30 @@ const getPatientName = (appointment: Appointment) => {
   }
   return 'Неизвестный пациент'
 }
+
+const handleAppointmentClick = (appointment: Appointment) => {
+  viewingAppointment.value = appointment
+  isDetailsOpen.value = true
+  emit('appointmentClick', appointment)
+}
+
+const handleDetailsClose = () => {
+  isDetailsOpen.value = false
+  viewingAppointment.value = null
+}
+
+const handleDetailsEdit = () => {
+  // Переходим на страницу расписания для редактирования
+  handleDetailsClose()
+  navigateTo(`/schedule?appointmentId=${viewingAppointment.value?.id}`)
+}
+
+const handleDetailsDelete = async () => {
+  // После удаления обновляем список приёмов и закрываем модальное окно
+  await appointmentsStore.fetchAppointments()
+  emit('refresh')
+  handleDetailsClose()
+}
 </script>
 
 <template>
@@ -109,7 +142,7 @@ const getPatientName = (appointment: Appointment) => {
         v-for="appointment in todayAppointments"
         :key="appointment.id"
         class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-        @click="emit('appointmentClick', appointment)"
+        @click="handleAppointmentClick(appointment)"
       >
         <div class="flex items-start justify-between">
           <div class="flex-1">
@@ -154,6 +187,15 @@ const getPatientName = (appointment: Appointment) => {
         Перейти к расписанию →
       </NuxtLink>
     </div>
+
+    <!-- Модальное окно с деталями приёма -->
+    <AppointmentDetails
+      :appointment="viewingAppointment"
+      :is-open="isDetailsOpen"
+      @close="handleDetailsClose"
+      @edit="handleDetailsEdit"
+      @delete="handleDetailsDelete"
+    />
   </div>
 </template>
 

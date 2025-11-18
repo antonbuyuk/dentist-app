@@ -146,9 +146,17 @@ onMounted(async () => {
       </div>
 
       <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold mb-4">
-          Моя информация
-        </h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold">
+            Моя информация
+          </h2>
+          <NuxtLink
+            :to="`/patient/${authStore.user?.id || 'me'}`"
+            class="text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
+            Подробнее →
+          </NuxtLink>
+        </div>
         <div
           v-if="currentPatient"
           class="space-y-3 text-sm"

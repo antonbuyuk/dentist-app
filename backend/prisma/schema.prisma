@@ -57,6 +57,7 @@ model Workplace {
 
   appointments Appointment[]
   doctors      DoctorWorkplace[]
+  suggestions  AppointmentSuggestion[]
 
   @@map("workplaces")
 }
@@ -77,27 +78,30 @@ model DoctorWorkplace {
 }
 
 model User {
-  id                    String            @id @default(uuid())
-  email                 String            @unique
+  id                    String                  @id @default(uuid())
+  email                 String                  @unique
   password              String
   firstName             String?
   lastName              String?
   phone                 String?
   dateOfBirth           DateTime?
   address               String?
-  medicalHistory        String?           @db.Text
+  medicalHistory        String?                 @db.Text
   color                 String? // Цвет для отображения в календаре (hex формат, например #3b82f6)
-  role                  String            @default("patient") // developer, rootUser, doctor, patient, admin
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
-  patientAppointments   Appointment[]     @relation("PatientAppointments")
-  doctorAppointments    Appointment[]     @relation("DoctorAppointments")
-  doctorWorkplaces      DoctorWorkplace[] @relation("DoctorWorkplaces")
+  role                  String                  @default("patient") // developer, rootUser, doctor, patient, admin
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  patientAppointments   Appointment[]           @relation("PatientAppointments")
+  doctorAppointments    Appointment[]           @relation("DoctorAppointments")
+  doctorWorkplaces      DoctorWorkplace[]       @relation("DoctorWorkplaces")
   notifications         Notification[]
-  patientMedicalRecords MedicalRecord[]   @relation("PatientMedicalRecords")
-  doctorMedicalRecords  MedicalRecord[]   @relation("DoctorMedicalRecords")
-  createdMedicalRecords MedicalRecord[]   @relation("CreatedMedicalRecords")
-  uploadedFiles         FileAttachment[]  @relation("UploadedFiles")
+  patientMedicalRecords MedicalRecord[]         @relation("PatientMedicalRecords")
+  doctorMedicalRecords  MedicalRecord[]         @relation("DoctorMedicalRecords")
+  createdMedicalRecords MedicalRecord[]         @relation("CreatedMedicalRecords")
+  uploadedFiles         FileAttachment[]        @relation("UploadedFiles")
+  doctorSuggestions     AppointmentSuggestion[] @relation("DoctorSuggestions")
+  patientSuggestions    AppointmentSuggestion[] @relation("PatientSuggestions")
+  reviewedSuggestions   AppointmentSuggestion[] @relation("ReviewedSuggestions")
 
   @@map("users")
 }
@@ -155,7 +159,7 @@ model FileAttachment {
   userId          String // Кто загрузил файл
   fileName        String // Оригинальное имя файла
   filePath        String? // Путь к файлу на сервере (опционально, для обратной совместимости)
-  fileData        String? @db.Text // Base64 данные изображения (data:image format)
+  fileData        String?  @db.Text // Base64 данные изображения (data:image format)
   fileSize        Int // Размер файла в байтах
   mimeType        String // MIME тип (image/jpeg, image/png и т.д.)
   description     String? // Описание файла
@@ -168,4 +172,30 @@ model FileAttachment {
   @@index([userId])
   @@index([createdAt])
   @@map("file_attachments")
+}
+
+model AppointmentSuggestion {
+  id          String    @id @default(uuid())
+  doctorId    String // Врач, который предложил приём
+  patientId   String // Пациент
+  startTime   DateTime // Предлагаемое время начала
+  endTime     DateTime // Предлагаемое время окончания
+  notes       String?   @db.Text // Заметки врача
+  status      String    @default("pending") // pending, approved, rejected
+  workplaceId String? // Рабочее место (опционально)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  reviewedAt  DateTime? // Когда было рассмотрено
+  reviewedBy  String? // Кто рассмотрел (ID администратора)
+
+  doctor    User       @relation("DoctorSuggestions", fields: [doctorId], references: [id], onDelete: Cascade)
+  patient   User       @relation("PatientSuggestions", fields: [patientId], references: [id], onDelete: Cascade)
+  reviewer  User?      @relation("ReviewedSuggestions", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  workplace Workplace? @relation(fields: [workplaceId], references: [id], onDelete: SetNull)
+
+  @@index([doctorId])
+  @@index([patientId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("appointment_suggestions")
 }

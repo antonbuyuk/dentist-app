@@ -405,12 +405,46 @@ onMounted(() => {
             class="hover:bg-gray-50"
           >
             <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm font-medium text-gray-900">
+              <NuxtLink
+                v-if="user.role === 'patient'"
+                :to="`/patient/${user.id}`"
+                class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+              >
+                {{ user.email }}
+              </NuxtLink>
+              <NuxtLink
+                v-else-if="user.role === 'doctor'"
+                :to="`/doctor/${user.id}`"
+                class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+              >
+                {{ user.email }}
+              </NuxtLink>
+              <div
+                v-else
+                class="text-sm font-medium text-gray-900"
+              >
                 {{ user.email }}
               </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm text-gray-900">
+              <NuxtLink
+                v-if="user.role === 'patient'"
+                :to="`/patient/${user.id}`"
+                class="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+              >
+                {{ user.firstName || '-' }} {{ user.lastName || '' }}
+              </NuxtLink>
+              <NuxtLink
+                v-else-if="user.role === 'doctor'"
+                :to="`/doctor/${user.id}`"
+                class="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+              >
+                {{ user.firstName || '-' }} {{ user.lastName || '' }}
+              </NuxtLink>
+              <div
+                v-else
+                class="text-sm text-gray-900"
+              >
                 {{ user.firstName || '-' }} {{ user.lastName || '' }}
               </div>
             </td>

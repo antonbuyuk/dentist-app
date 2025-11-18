@@ -3,6 +3,9 @@ import type { Appointment } from '~/types/appointment'
 import type { MedicalRecord } from '~/types/medical-record'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
+import MedicalRecordCompact from '~/components/MedicalRecordCompact.vue'
+import MedicalRecordView from '~/components/MedicalRecordView.vue'
+import { useAuthStore } from '~/store/auth'
 
 type TimelineItem = {
   id: string
@@ -94,6 +97,40 @@ const getStatusLabel = (status: string) => {
       return status
   }
 }
+
+const authStore = useAuthStore()
+
+// Состояние модального окна для детального просмотра медицинской записи
+const isRecordDetailOpen = ref(false)
+const viewingRecord = ref<MedicalRecord | null>(null)
+
+const canEditRecord = computed(() => {
+  if (!viewingRecord.value || !authStore.user) return false
+  return (
+    viewingRecord.value.createdById === authStore.user.id ||
+    ['developer', 'rootUser', 'admin'].includes(authStore.user.role)
+  )
+})
+
+const handleRecordClick = (record: MedicalRecord) => {
+  viewingRecord.value = record
+  isRecordDetailOpen.value = true
+}
+
+const handleRecordDetailClose = () => {
+  isRecordDetailOpen.value = false
+  viewingRecord.value = null
+}
+
+const handleRecordEdit = () => {
+  // Можно добавить логику редактирования, если нужно
+  handleRecordDetailClose()
+}
+
+const handleRecordDelete = async () => {
+  // Можно добавить логику удаления, если нужно
+  handleRecordDetailClose()
+}
 </script>
 
 <template>
@@ -106,7 +143,7 @@ const getStatusLabel = (status: string) => {
 
     <div class="space-y-8">
       <div
-        v-for="(item, index) in timelineItems"
+        v-for="item in timelineItems"
         :key="item.id"
         class="relative flex gap-6"
       >
@@ -195,76 +232,16 @@ const getStatusLabel = (status: string) => {
             </div>
           </div>
 
-          <!-- Медицинская запись -->
+          <!-- Медицинская запись (компактная версия) -->
           <div
             v-if="item.type === 'medical_record' && item.medicalRecord"
-            class="bg-white border-2 border-green-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
+            class="cursor-pointer"
+            @click="handleRecordClick(item.medicalRecord)"
           >
-            <div class="text-lg font-semibold text-gray-900 mb-2">
-              Медицинская запись
-            </div>
-
-            <div class="space-y-2 text-sm text-gray-700">
-              <div
-                v-if="item.medicalRecord.doctor"
-                class="flex items-center gap-2"
-              >
-                <span class="font-medium">Врач:</span>
-                <span>
-                  {{ item.medicalRecord.doctor.firstName }} {{ item.medicalRecord.doctor.lastName }}
-                </span>
-              </div>
-
-              <div
-                v-if="item.medicalRecord.createdBy"
-                class="flex items-center gap-2 text-gray-600"
-              >
-                <span class="font-medium">Заполнил:</span>
-                <span>
-                  {{ item.medicalRecord.createdBy.firstName }} {{ item.medicalRecord.createdBy.lastName }}
-                </span>
-              </div>
-
-              <div
-                v-if="item.medicalRecord.diagnosis"
-                class="mt-3"
-              >
-                <span class="font-medium text-gray-900">Диагноз:</span>
-                <p class="text-gray-700 whitespace-pre-wrap">
-                  {{ item.medicalRecord.diagnosis }}
-                </p>
-              </div>
-
-              <div
-                v-if="item.medicalRecord.treatment"
-                class="mt-2"
-              >
-                <span class="font-medium text-gray-900">Лечение:</span>
-                <p class="text-gray-700 whitespace-pre-wrap">
-                  {{ item.medicalRecord.treatment }}
-                </p>
-              </div>
-
-              <div
-                v-if="item.medicalRecord.notes"
-                class="mt-2"
-              >
-                <span class="font-medium text-gray-900">Заметки:</span>
-                <p class="text-gray-700 whitespace-pre-wrap">
-                  {{ item.medicalRecord.notes }}
-                </p>
-              </div>
-
-              <div
-                v-if="item.medicalRecord.recommendations"
-                class="mt-2"
-              >
-                <span class="font-medium text-gray-900">Рекомендации:</span>
-                <p class="text-gray-700 whitespace-pre-wrap">
-                  {{ item.medicalRecord.recommendations }}
-                </p>
-              </div>
-            </div>
+            <MedicalRecordCompact
+              :record="item.medicalRecord"
+              :show-actions="false"
+            />
           </div>
         </div>
       </div>
@@ -287,6 +264,46 @@ const getStatusLabel = (status: string) => {
           />
         </svg>
         <p>История пуста</p>
+      </div>
+    </div>
+
+    <!-- Модальное окно для детального просмотра медицинской записи -->
+    <div
+      v-if="isRecordDetailOpen && viewingRecord"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+          <h2 class="text-2xl font-bold text-gray-900">
+            Медицинская запись
+          </h2>
+          <button
+            class="text-gray-400 hover:text-gray-600 transition-colors"
+            @click="handleRecordDetailClose"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="p-6">
+          <MedicalRecordView
+            :record="viewingRecord"
+            :show-actions="canEditRecord"
+            @edit="handleRecordEdit"
+            @delete="handleRecordDelete"
+          />
+        </div>
       </div>
     </div>
   </div>

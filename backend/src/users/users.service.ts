@@ -98,6 +98,33 @@ export class UsersService {
     return users;
   }
 
+  async findPatients(): Promise<UserResponseDto[]> {
+    const patients = await this.prisma.user.findMany({
+      where: {
+        role: 'patient',
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        dateOfBirth: true,
+        address: true,
+        medicalHistory: true,
+        color: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return patients;
+  }
+
   async findOne(id: string): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { id },

@@ -8,5 +8,13 @@ export class WorkplaceResponseDto {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  doctors?: Array<{
+    doctorId: string;
+    doctor?: {
+      id: string;
+      firstName: string | null;
+      lastName: string | null;
+      email: string;
+    };
+  }>;
 }
-

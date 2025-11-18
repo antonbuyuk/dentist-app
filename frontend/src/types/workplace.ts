@@ -8,6 +8,15 @@ export interface Workplace {
   isActive: boolean
   createdAt: string
   updatedAt: string
+  doctors?: Array<{
+    doctorId: string
+    doctor?: {
+      id: string
+      firstName: string | null
+      lastName: string | null
+      email: string
+    }
+  }>
 }
 
 export interface CreateWorkplaceDto {

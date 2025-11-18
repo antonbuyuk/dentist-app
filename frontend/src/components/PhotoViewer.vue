@@ -36,7 +36,6 @@ const formatFileSize = (bytes: number) => {
   <div
     v-if="isOpen && file"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90"
-    @click.self="emit('close')"
   >
     <div class="relative max-w-7xl max-h-[90vh] p-4">
       <button

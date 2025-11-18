@@ -58,7 +58,17 @@ const apiError = ref<string | null>(null)
 watch(() => props.isOpen, async (open) => {
   if (open) {
     if (usersStore.users.length === 0) {
-      await usersStore.fetchUsers()
+      try {
+        // Сначала пробуем загрузить пациентов (для врачей)
+        await usersStore.fetchPatients()
+      } catch (error) {
+        // Если не удалось, загружаем всех пользователей (для администраторов)
+        try {
+          await usersStore.fetchUsers()
+        } catch (err) {
+          console.error('Ошибка загрузки пользователей:', err)
+        }
+      }
     }
     resetForm()
   }
@@ -218,7 +228,6 @@ watch(() => props.appointment, () => {
   <div
     v-if="isOpen"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    @click.self="handleClose"
   >
     <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
       <div class="p-6">

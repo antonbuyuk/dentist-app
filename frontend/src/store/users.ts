@@ -62,6 +62,25 @@ export const useUsersStore = defineStore('users', {
       }
     },
 
+    async fetchPatients() {
+      this.loading = true
+      this.error = null
+
+      try {
+        const { $api } = useNuxtApp()
+        const patients = await $api.get<User[]>('/users/patients')
+        // Обновляем список пользователей только пациентами
+        this.users = patients
+        return patients
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Ошибка загрузки пациентов'
+        this.error = errorMessage
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
     async fetchUser(userId: string) {
       this.loading = true
       this.error = null
@@ -69,13 +88,13 @@ export const useUsersStore = defineStore('users', {
       try {
         const { $api } = useNuxtApp()
         const user = await $api.get<User>(`/users/${userId}`)
-        
+
         // Обновляем пользователя в списке, если он там есть
         const index = this.users.findIndex((u) => u.id === userId)
         if (index !== -1) {
           this.users[index] = user
         }
-        
+
         return user
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Ошибка загрузки пользователя'

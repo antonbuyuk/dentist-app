@@ -253,6 +253,17 @@ export class WorkplacesService {
       isActive: workplace.isActive,
       createdAt: workplace.createdAt,
       updatedAt: workplace.updatedAt,
+      doctors: workplace.doctors?.map((dw: any) => ({
+        doctorId: dw.doctorId,
+        doctor: dw.doctor
+          ? {
+              id: dw.doctor.id,
+              firstName: dw.doctor.firstName,
+              lastName: dw.doctor.lastName,
+              email: dw.doctor.email,
+            }
+          : undefined,
+      })),
     };
   }
 }
