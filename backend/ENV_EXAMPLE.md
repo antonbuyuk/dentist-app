@@ -85,29 +85,6 @@ SMTP_PASS=your-app-password
    - Скопируйте сгенерированный 16-символьный пароль
    - Используйте этот пароль в `SMTP_PASS` (не ваш обычный пароль от Gmail!)
 
-### Настройка Яндекс.Почты
-
-```env
-SMTP_HOST=smtp.yandex.ru
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=your-email@yandex.ru
-SMTP_PASS=your-password
-```
-
-**Примечание:** Используйте полный email адрес в `SMTP_USER` и ваш обычный пароль от почты.
-
-### Настройка Mail.ru
-
-```env
-SMTP_HOST=smtp.mail.ru
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=your-email@mail.ru
-SMTP_PASS=your-password
-```
-
----
 
 ## Полный пример .env файла
 
